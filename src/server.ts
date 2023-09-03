@@ -1,13 +1,10 @@
 import { fastify } from 'fastify'
 import { k } from './database'
+import { transactionsRoute } from './routes/transactions'
 
 const app = fastify()
 
-app.get('/', async () => {
-    const test = await k('sqlite_schema').select('*')
-
-    return test
-})
+app.register(transactionsRoute)
 
 app.listen({
     port: 3333,
