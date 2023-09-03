@@ -2,41 +2,72 @@ import { type FastifyInstance } from 'fastify'
 import { k } from '../database'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
+import { checkSessionIdCookie } from '../middlewares/check-session-id-cookie'
 
 export async function transactionsRoute(app: FastifyInstance) {
-  app.get('/', async () => {
-    const transactions = await k('transactions').select()
+  app.get(
+    '/',
+    {
+      preHandler: [checkSessionIdCookie],
+    },
+    async (req) => {
+      const { sessionId } = req.cookies
 
-    return {
-      transactions,
-    }
-  })
+      const transactions = await k('transactions')
+        .where('session_id', sessionId)
+        .select()
 
-  app.get('/:id', async (request) => {
-    const getTransactionParamsSchema = z.object({
-      id: z.string().uuid(),
-    })
+      return {
+        transactions,
+      }
+    },
+  )
 
-    const { id } = getTransactionParamsSchema.parse(request.params)
-
-    const transaction = await k('transactions').where('id', id).first()
-
-    return {
-      transaction,
-    }
-  })
-
-  app.get('/summary', async () => {
-    const summary = await k('transactions')
-      .sum('amount', {
-        as: 'amount',
+  app.get(
+    '/:id',
+    {
+      preHandler: [checkSessionIdCookie],
+    },
+    async (req) => {
+      const getTransactionParamsSchema = z.object({
+        id: z.string().uuid(),
       })
-      .first()
 
-    return {
-      summary,
-    }
-  })
+      const { id } = getTransactionParamsSchema.parse(req.params)
+      const { sessionId } = req.cookies
+
+      const transaction = await k('transactions')
+        .where({
+          session_id: sessionId,
+          id,
+        })
+        .first()
+
+      return {
+        transaction,
+      }
+    },
+  )
+
+  app.get(
+    '/summary',
+    {
+      preHandler: [checkSessionIdCookie],
+    },
+    async (req) => {
+      const { sessionId } = req.cookies
+      const summary = await k('transactions')
+        .where('session_id', sessionId)
+        .sum('amount', {
+          as: 'amount',
+        })
+        .first()
+
+      return {
+        summary,
+      }
+    },
+  )
 
   app.post('/', async (req, res) => {
     const createTransactionBodySchema = z.object({
